@@ -21,7 +21,7 @@
 #include <input/types.h>
 
 INPUT_API int
-input_module_initialize(void);
+input_module_initialize(const input_config_t config);
 
 INPUT_API void
 input_module_finalize(void);

@@ -41,3 +41,9 @@
 #  define INPUT_API extern
 #  endif
 #endif
+
+typedef struct input_config_t input_config_t;
+
+struct input_config_t {
+	unsigned int _unused;
+};

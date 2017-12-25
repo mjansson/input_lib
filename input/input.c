@@ -18,7 +18,8 @@
 #include "input.h"
 
 int
-input_module_initialize(void) {
+input_module_initialize(const input_config_t config) {
+	FOUNDATION_UNUSED(config);
 	return 0;
 }
 

@@ -26,6 +26,10 @@ input_lib = generator.lib(module = 'input', sources = input_sources + extrasourc
 #  if not configs == []:
 #    generator.bin('bin2hex', ['main.c'], 'bin2hex', basepath = 'tools', implicit_deps = [foundation_lib], libs = ['foundation'], configs = configs)
 
+#No test cases if we're a submodule
+if generator.is_subninja():
+  sys.exit()
+
 includepaths = generator.test_includepaths()
 
 test_cases = ['basic']
