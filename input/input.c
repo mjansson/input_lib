@@ -1,4 +1,4 @@
-/* input.c  -  Input library entry points  -  Public Domain  -  2013 Mattias Jansson / Rampant Pixels
+/* input.c  -  Input library entry points  -  Public Domain  -  2017 Mattias Jansson / Rampant Pixels
  *
  * This library provides a cross-platform input handling in C11 providing for projects based on our
  * foundation library. The latest source code is always available at
@@ -13,16 +13,19 @@
  *
  */
 
-#include <foundation/foundation.h>
-
-#include "input.h"
+#include <input/input.h>
+#include <input/internal.h>
 
 int
 input_module_initialize(const input_config_t config) {
 	FOUNDATION_UNUSED(config);
-	return 0;
+	if (input_module_initialize_native())
+		return -1;
+	return input_event_initialize();
 }
 
 void
 input_module_finalize(void) {
+	input_event_finalize();
+	input_module_finalize_native();
 }

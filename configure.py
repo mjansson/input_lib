@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join('build', 'ninja'))
 
 import generator
 
-dependlibs = ['foundation']
+dependlibs = ['window', 'foundation']
 
 generator = generator.Generator(project = 'input', dependlibs = dependlibs, variables = [('bundleidentifier', 'com.rampantpixels.input.$(binname)')])
 target = generator.target
@@ -17,7 +17,10 @@ writer = generator.writer
 toolchain = generator.toolchain
 extrasources = []
 
-input_sources = ['input.c', 'version.c']
+input_sources = [
+  'event.c', 'input.c', 'input_android.c', 'input_ios.c', 'input_linux.c', 'input_macos.c', 'input_windows.c',
+  'version.c'
+]
 
 input_lib = generator.lib(module = 'input', sources = input_sources + extrasources)
 

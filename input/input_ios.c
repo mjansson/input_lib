@@ -1,4 +1,4 @@
-/* input.h  -  Input library entry points  -  Public Domain  -  2017 Mattias Jansson / Rampant Pixels
+/* input_ios.c  -  Input library iOS implementation  -  Public Domain  -  2017 Mattias Jansson / Rampant Pixels
  *
  * This library provides a cross-platform input handling in C11 providing for projects based on our
  * foundation library. The latest source code is always available at
@@ -13,20 +13,19 @@
  *
  */
 
-#pragma once
+#include <input/input.h>
 
-/*! \file input.h
-    Input library */
+#if FOUNDATION_PLATFORM_IOS
 
-#include <input/types.h>
-#include <input/event.h>
-#include <input/hashstrings.h>
+void _input_service_initialize_native( void )
+{
+}
 
-INPUT_API int
-input_module_initialize(const input_config_t config);
 
-INPUT_API void
-input_module_finalize(void);
+void _input_service_poll_native( void )
+{
+}
 
-INPUT_API version_t
-input_module_version(void);
+
+#endif
+

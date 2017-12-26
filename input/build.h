@@ -1,4 +1,4 @@
-/* build.h  -  Input library build setup  -  Public Domain  -  2013 Mattias Jansson / Rampant Pixels
+/* build.h  -  Input library build setup  -  Public Domain  -  2017 Mattias Jansson / Rampant Pixels
  *
  * This library provides a cross-platform input handling in C11 providing for projects based on our
  * foundation library. The latest source code is always available at

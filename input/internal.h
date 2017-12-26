@@ -1,4 +1,4 @@
-/* input.h  -  Input library entry points  -  Public Domain  -  2017 Mattias Jansson / Rampant Pixels
+/* internal.h  -  Input internals  -  Public Domain  -  2017 Mattias Jansson / Rampant Pixels
  *
  * This library provides a cross-platform input handling in C11 providing for projects based on our
  * foundation library. The latest source code is always available at
@@ -15,18 +15,14 @@
 
 #pragma once
 
-/*! \file input.h
-    Input library */
-
-#include <input/types.h>
-#include <input/event.h>
-#include <input/hashstrings.h>
-
 INPUT_API int
-input_module_initialize(const input_config_t config);
+input_module_initialize_native(void);
 
 INPUT_API void
-input_module_finalize(void);
+input_module_finalize_native(void);
 
-INPUT_API version_t
-input_module_version(void);
+INPUT_API int
+input_event_initialize(void);
+
+INPUT_API void
+input_event_finalize(void);
