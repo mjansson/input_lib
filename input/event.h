@@ -21,6 +21,9 @@
 #include <input/types.h>
 
 INPUT_API void
+input_event_post(input_event_id id);
+
+INPUT_API void
 input_event_post_key(input_event_id id, unsigned int key, unsigned int scancode);
 
 INPUT_API void

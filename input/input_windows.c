@@ -165,7 +165,7 @@ input_event_handle_window(event_t* event) {
 		unsigned int msg;
 		uintptr_t wparam;
 		uintptr_t lparam;
-	} *data = (void*)event->payload;;
+	} *data = (void*)event->payload;
 
 	//TODO: Proper hwnd management
 	if (data->hwnd)

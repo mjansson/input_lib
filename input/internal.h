@@ -15,6 +15,8 @@
 
 #pragma once
 
+INPUT_EXTERN event_stream_t* _input_event_stream;
+
 INPUT_API int
 input_module_initialize_native(void);
 
