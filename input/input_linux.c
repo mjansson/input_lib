@@ -137,18 +137,18 @@ input_event_handle_window(event_t* event) {
 
 	struct {
 		window_t* window;
-		XEvent* xevent;
+		XEvent xevent;
 	} *data = (void*)event->payload;
 
 	unsigned int button = 0;
 	KeySym sym;
 
-	XPointerMovedEvent* moveevent = (XPointerMovedEvent*)data->xevent;
-	XButtonEvent* buttonevent = (XButtonEvent*)data->xevent;
-	XKeyEvent* keyevent = (XKeyEvent*)data->xevent;
-	XMappingEvent* mapevent = (XMappingEvent*)data->xevent;
+	XPointerMovedEvent* moveevent = (XPointerMovedEvent*)&data->xevent;
+	XButtonEvent* buttonevent = (XButtonEvent*)&data->xevent;
+	XKeyEvent* keyevent = (XKeyEvent*)&data->xevent;
+	XMappingEvent* mapevent = (XMappingEvent*)&data->xevent;
 
-	switch (data->xevent->type) {
+	switch (data->xevent.type) {
 	case MotionNotify:
 		if (mouse_x < 0) {
 			mouse_x = moveevent->x;
@@ -179,7 +179,7 @@ input_event_handle_window(event_t* event) {
 			break;
 		}
 
-		if (data->xevent->type == ButtonPress) {
+		if (data->xevent.type == ButtonPress) {
 			mouse_buttons |= button;
 			mouse_down_x[button] = (int)moveevent->x;
 			mouse_down_y[button] = (int)moveevent->y;
@@ -208,7 +208,7 @@ input_event_handle_window(event_t* event) {
 
 	case KeyRelease:
 	case KeyPress:
-		if (data->xevent->type == KeyPress) {
+		if (data->xevent.type == KeyPress) {
 			static const int bufsize = 128;
 			static char buf[128];
 			wchar_t* str = 0;
@@ -240,7 +240,7 @@ input_event_handle_window(event_t* event) {
 		}
 
 		sym = XLookupKeysym(keyevent, 0);
-		if (data->xevent->type == KeyPress)
+		if (data->xevent.type == KeyPress)
 			input_event_post_key(INPUTEVENT_KEYDOWN, (unsigned int)lookup_key(sym), keyevent->keycode);
 		else
 			input_event_post_key(INPUTEVENT_KEYUP, (unsigned int)lookup_key(sym), keyevent->keycode);
