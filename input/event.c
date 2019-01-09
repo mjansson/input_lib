@@ -39,7 +39,7 @@ input_event_stream(void) {
 
 void
 input_event_post(input_event_id id) {
-	event_post(_input_event_stream, id, 0, 0, 0, 0);
+	event_post(_input_event_stream, (int)id, 0, 0, 0, 0);
 }
 
 void
@@ -47,7 +47,7 @@ input_event_post_key(input_event_id id, unsigned int key, unsigned int scancode)
 	input_event_payload_t payload;
 	payload.key.key = key;
 	payload.key.scancode = scancode;
-	event_post(_input_event_stream, id, 0, 0, &payload, sizeof(payload));
+	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
 }
 
 void
@@ -61,7 +61,7 @@ input_event_post_mouse(input_event_id id, int x, int y, real dx, real dy, real d
 	payload.mouse.dz = dz;
 	payload.mouse.button = button;
 	payload.mouse.buttons = buttons;
-	event_post(_input_event_stream, id, 0, 0, &payload, sizeof(payload));
+	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
 }
 
 void
@@ -75,7 +75,7 @@ input_event_post_touch(input_event_id id, int x, int y, real dx, real dy, real v
 	payload.touch.velocity = velocity;
 	payload.touch.touch = touch;
 	payload.touch.touches = touches;
-	event_post(_input_event_stream, id, 0, 0, &payload, sizeof(payload));
+	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
 }
 
 void
@@ -84,5 +84,5 @@ input_event_post_acceleration(input_event_id id, real x, real y, real z) {
 	payload.acceleration.x = x;
 	payload.acceleration.y = y;
 	payload.acceleration.z = z;
-	event_post(_input_event_stream, id, 0, 0, &payload, sizeof(payload));
+	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
 }
