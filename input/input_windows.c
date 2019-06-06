@@ -34,13 +34,11 @@
 static int mouse_x;
 static int mouse_y;
 static unsigned int mouse_buttons;
-static unsigned char keystate_next[256];
-static unsigned char keystate_prev[256];
 static bool unichar = false;
-static HWND last_hwnd;
 
 static unsigned int
-translate_key(unsigned int key) {
+translate_key(unsigned int scancode, unsigned int key, unsigned int flags) {
+	FOUNDATION_UNUSED(flags);
 	if (key >= 0x41 && key <= 0x5A)
 		return KEY_A + (key - 0x41);
 	if (key >= 0x30 && key <= 0x39)
@@ -82,14 +80,26 @@ translate_key(unsigned int key) {
 			return KEY_TAB;
 		case VK_CAPITAL:
 			return KEY_CAPSLOCK;
+		case VK_SHIFT:
+			if (scancode < 0x30)
+				return KEY_LSHIFT;
+			return KEY_RSHIFT;
 		case VK_LSHIFT:
 			return KEY_LSHIFT;
 		case VK_RSHIFT:
 			return KEY_RSHIFT;
+		case VK_CONTROL:
+			if (!(flags & 2))
+				return KEY_LCTRL;
+			return KEY_RCTRL;
 		case VK_LCONTROL:
 			return KEY_LCTRL;
 		case VK_RCONTROL:
 			return KEY_RCTRL;
+		case VK_MENU:
+			if (!(flags & 2))
+				return KEY_LALT;
+			return KEY_RALT;
 		case VK_LMENU:
 			return KEY_LALT;
 		case VK_RMENU:
@@ -139,7 +149,6 @@ input_module_initialize_native(void) {
 		mouse_x = pt.x;
 		mouse_y = pt.y;
 	}
-	memset(keystate_prev, 0, sizeof(unsigned char) * 256);
 	return 0;
 }
 
@@ -149,45 +158,57 @@ input_module_finalize_native(void) {
 
 void
 input_event_process(void) {
-	GetKeyboardState(keystate_next);
-	if (keystate_next[VK_RMENU] & 0x80) {
-		// Hack to fix keyboards where left-control is set when right-alt is pressed
-		if (!(keystate_prev[VK_LCONTROL] & 0x80))
-			keystate_next[VK_LCONTROL] &= 0x7F;
-	}
-	for (int i = 0; i < 256; ++i) {
-		if ((i == VK_MENU) || (i == VK_SHIFT) || (i == VK_CONTROL) || (i == VK_LBUTTON) ||
-		    (i == VK_MBUTTON) || (i == VK_RBUTTON))
-			continue;
-		if ((keystate_next[i] & 0x80) && !(keystate_prev[i] & 0x80))
-			input_event_post_key(INPUTEVENT_KEYDOWN, translate_key(i), i);
-		else if (!(keystate_next[i] & 0x80) && (keystate_prev[i] & 0x80))
-			input_event_post_key(INPUTEVENT_KEYUP, translate_key(i), i);
-	}
-	memcpy(keystate_prev, keystate_next, sizeof(unsigned char) * 256);
+}
 
-	POINT pt;
-	if (last_hwnd && GetCursorPos(&pt)) {
-		if (ScreenToClient(last_hwnd, &pt)) {
+void
+input_mouse_current_client_point(HWND hwnd, POINT* pt) {
+	if (hwnd && GetCursorPos(pt)) {
+		if (ScreenToClient(hwnd, pt)) {
 			/*if( _p_window->isCursorLocked() )
 			{
 			    gui::Point size = _p_window->getSize();
-
 			    lastX = size.x / 2;
 			    lastY = size.y / 2;
-
 			    _p_window->setCursorPos( lastX, lastY );
 			}*/
-
-			if ((pt.x != mouse_x) || (pt.y != mouse_y))
-				input_event_post_mouse(INPUTEVENT_MOUSEMOVE, pt.x, pt.y,
-				                       (real)((int)pt.x - mouse_x), (real)((int)pt.y - mouse_y), 0,
-				                       0, mouse_buttons);
-
-			mouse_x = pt.x;
-			mouse_y = pt.y;
 		}
 	}
+}
+
+static POINT mouse_down[8];
+static time_t mouse_down_time[8];
+
+static int ri_down_flag[5][2] = {{RI_MOUSE_BUTTON_1_DOWN, MOUSEBUTTON_LEFT},
+                                 {RI_MOUSE_BUTTON_2_DOWN, MOUSEBUTTON_RIGHT},
+                                 {RI_MOUSE_BUTTON_3_DOWN, MOUSEBUTTON_MIDDLE},
+                                 {RI_MOUSE_BUTTON_4_DOWN, MOUSEBUTTON_3},
+                                 {RI_MOUSE_BUTTON_5_DOWN, MOUSEBUTTON_4}};
+
+static int ri_up_flag[5][2] = {{RI_MOUSE_BUTTON_1_UP, MOUSEBUTTON_LEFT},
+                               {RI_MOUSE_BUTTON_2_UP, MOUSEBUTTON_RIGHT},
+                               {RI_MOUSE_BUTTON_3_UP, MOUSEBUTTON_MIDDLE},
+                               {RI_MOUSE_BUTTON_4_UP, MOUSEBUTTON_3},
+                               {RI_MOUSE_BUTTON_5_UP, MOUSEBUTTON_4}};
+
+void
+input_mouse_down(input_mouse_button_id button, int x, int y) {
+	mouse_buttons |= button;
+	mouse_down[MOUSEBUTTON_LEFT].x = x;
+	mouse_down[MOUSEBUTTON_LEFT].y = y;
+	mouse_down_time[MOUSEBUTTON_LEFT] = time_current();
+	input_event_post_mouse(INPUTEVENT_MOUSEDOWN, mouse_down[MOUSEBUTTON_LEFT].x,
+	                       mouse_down[MOUSEBUTTON_LEFT].y, 0, 0, 0, MOUSEBUTTON_LEFT,
+	                       mouse_buttons);
+}
+
+void
+input_mouse_up(input_mouse_button_id button, int x, int y) {
+	mouse_buttons &= ~button;
+	int dx = x - mouse_down[MOUSEBUTTON_LEFT].x;
+	int dy = y - mouse_down[MOUSEBUTTON_LEFT].y;
+	input_event_post_mouse(INPUTEVENT_MOUSEUP, x, y, (real)dx, (real)dy,
+	                       time_elapsed(mouse_down_time[MOUSEBUTTON_LEFT]), MOUSEBUTTON_LEFT,
+	                       mouse_buttons);
 }
 
 void
@@ -196,96 +217,87 @@ input_event_handle_window(event_t* event) {
 	if (event->id != WINDOWEVENT_NATIVE)
 		return;
 
-	struct {
+	struct payload_t {
 		window_t* window;
-		HWND hwnd;
-		unsigned int msg;
+		void* hwnd;
+		uintptr_t msg;
 		uintptr_t wparam;
 		uintptr_t lparam;
-	}* data = (void*)event->payload;
-
-	// TODO: Proper hwnd management
-	if (data->hwnd)
-		last_hwnd = data->hwnd;
-
-	static POINT mouse_down[8];
-	static time_t mouse_down_time[8];
-
-	int x, y;
-	int dx, dy, dz;
+		uintptr_t buffer[FOUNDATION_FLEXIBLE_ARRAY];
+	};
+	struct payload_t* data = (struct payload_t*)event->payload;
+	size_t buffer_size = event->size - (sizeof(event_t) + sizeof(struct payload_t));
 
 	switch (data->msg) {
-		//********* MOUSE **********//
-		case WM_LBUTTONDOWN:
-			mouse_buttons |= MOUSEBUTTON_LEFT;
-			mouse_down[MOUSEBUTTON_LEFT].x = (int)(short)LOWORD(data->lparam);
-			mouse_down[MOUSEBUTTON_LEFT].y = (int)(short)HIWORD(data->lparam);
-			mouse_down_time[MOUSEBUTTON_LEFT] = time_current();
-			input_event_post_mouse(INPUTEVENT_MOUSEDOWN, mouse_down[MOUSEBUTTON_LEFT].x,
-			                       mouse_down[MOUSEBUTTON_LEFT].y, 0, 0, 0, MOUSEBUTTON_LEFT,
-			                       mouse_buttons);
+		case WM_KILLFOCUS:
+			for (unsigned int ibutton = 0; ibutton < 8; ++ibutton) {
+				if (mouse_buttons & (1 << ibutton))
+					input_mouse_up(1 << ibutton, mouse_x, mouse_y);
+			}
 			break;
 
-		case WM_LBUTTONUP:
-			mouse_buttons &= ~MOUSEBUTTON_LEFT;
-			x = LOWORD(data->lparam);
-			y = HIWORD(data->lparam);
-			dx = x - mouse_down[MOUSEBUTTON_LEFT].x;
-			dy = y - mouse_down[MOUSEBUTTON_LEFT].y;
-			input_event_post_mouse(INPUTEVENT_MOUSEUP, x, y, (real)dx, (real)dy,
-			                       time_elapsed(mouse_down_time[MOUSEBUTTON_LEFT]),
-			                       MOUSEBUTTON_LEFT, mouse_buttons);
-			break;
+		case WM_INPUT:
+			if (buffer_size >= sizeof(RAWINPUTHEADER)) {
+				RAWINPUT* raw = (RAWINPUT*)&data->buffer[0];
+				if (raw->header.dwType == RIM_TYPEKEYBOARD) {
+					//********* KEYBOARD **********//
+					unsigned int scancode = raw->data.keyboard.MakeCode;
+					unsigned int flags = raw->data.keyboard.Flags & ~1;
+					unsigned int vkey = raw->data.keyboard.VKey;
+					unsigned int key = translate_key(scancode, vkey, flags);
+					if (raw->data.keyboard.Flags & RI_KEY_BREAK) {
+						input_event_post_key(INPUTEVENT_KEYUP, key, scancode, flags);
+						/*log_debugf(HASH_INPUT,
+						           STRING_CONST("Key: %u up, scancode %x, flags %x, vkey %x"), key,
+						           scancode, flags, vkey);*/
+					} else {
+						input_event_post_key(INPUTEVENT_KEYDOWN, key, scancode, flags);
+						/*log_debugf(HASH_INPUT,
+						           STRING_CONST("Key: %u down, scancode %x, flags %x, vkey %x"),
+						           key, scancode, flags, vkey);*/
+					}
+				} else if (raw->header.dwType == RIM_TYPEMOUSE) {
+					//********* MOUSE **********//
+					POINT current = {mouse_x, mouse_y};
+					input_mouse_current_client_point(data->hwnd, &current);
+					bool had_event = false;
+					for (int ibutton = 0; ibutton < 5; ++ibutton) {
+						if (raw->data.mouse.usButtonFlags & ri_down_flag[ibutton][0]) {
+							input_mouse_down(ri_down_flag[ibutton][1], (int)current.x,
+							                 (int)current.y);
+							had_event = true;
+						}
+						if (raw->data.mouse.usButtonFlags & ri_up_flag[ibutton][0]) {
+							input_mouse_up(ri_up_flag[ibutton][1], (int)current.x, (int)current.y);
+							had_event = true;
+						}
+					}
 
-		case WM_RBUTTONDOWN:
-			mouse_buttons |= MOUSEBUTTON_RIGHT;
-			mouse_down[MOUSEBUTTON_RIGHT].x = LOWORD(data->lparam);
-			mouse_down[MOUSEBUTTON_RIGHT].y = HIWORD(data->lparam);
-			mouse_down_time[MOUSEBUTTON_RIGHT] = time_current();
-			input_event_post_mouse(INPUTEVENT_MOUSEDOWN, mouse_down[MOUSEBUTTON_RIGHT].x,
-			                       mouse_down[MOUSEBUTTON_RIGHT].y, 0, 0, 0, MOUSEBUTTON_RIGHT,
-			                       mouse_buttons);
-			break;
-
-		case WM_RBUTTONUP:
-			mouse_buttons &= ~MOUSEBUTTON_RIGHT;
-			x = LOWORD(data->lparam);
-			y = HIWORD(data->lparam);
-			dx = x - mouse_down[MOUSEBUTTON_RIGHT].x;
-			dy = y - mouse_down[MOUSEBUTTON_RIGHT].y;
-			input_event_post_mouse(INPUTEVENT_MOUSEUP, x, y, (real)dx, (real)dy,
-			                       time_elapsed(mouse_down_time[MOUSEBUTTON_RIGHT]),
-			                       MOUSEBUTTON_RIGHT, mouse_buttons);
-			break;
-
-		case WM_MBUTTONDOWN:
-			mouse_buttons |= MOUSEBUTTON_MIDDLE;
-			mouse_down[MOUSEBUTTON_MIDDLE].x = (int)(short)LOWORD(data->lparam);
-			mouse_down[MOUSEBUTTON_MIDDLE].y = (int)(short)HIWORD(data->lparam);
-			mouse_down_time[MOUSEBUTTON_MIDDLE] = time_current();
-			input_event_post_mouse(INPUTEVENT_MOUSEDOWN, mouse_down[MOUSEBUTTON_MIDDLE].x,
-			                       mouse_down[MOUSEBUTTON_MIDDLE].y, 0, 0, 0, MOUSEBUTTON_MIDDLE,
-			                       mouse_buttons);
-			break;
-
-		case WM_MBUTTONUP:
-			mouse_buttons &= ~MOUSEBUTTON_MIDDLE;
-			x = LOWORD(data->lparam);
-			y = HIWORD(data->lparam);
-			dx = x - mouse_down[MOUSEBUTTON_MIDDLE].x;
-			dy = y - mouse_down[MOUSEBUTTON_MIDDLE].y;
-			input_event_post_mouse(INPUTEVENT_MOUSEUP, x, y, (real)dx, (real)dy,
-			                       time_elapsed(mouse_down_time[MOUSEBUTTON_MIDDLE]),
-			                       MOUSEBUTTON_MIDDLE, mouse_buttons);
-			break;
-
-		case WM_MOUSEWHEEL:
-			dz = GET_WHEEL_DELTA_WPARAM(data->wparam);
-			if (dz != 0) {
-				POINT pt;
-				if (GetCursorPos(&pt))
-					input_event_post_mouse(INPUTEVENT_MOUSEMOVE, pt.x, pt.y, 0, 0,
-					                       (real)dz / (real)WHEEL_DELTA, 0, mouse_buttons);
+					int delta_x = (int)current.x - mouse_x;
+					int delta_y = (int)current.y - mouse_y;
+					int delta_z = 0;
+					if (raw->data.mouse.usButtonFlags & RI_MOUSE_WHEEL) {
+						delta_z = (short)raw->data.mouse.usButtonData;
+					}
+					if (data->window->is_resizing) {
+						delta_x = 0;
+						delta_y = 0;
+					}
+					if (delta_x || delta_y || delta_z) {
+						input_event_post_mouse(INPUTEVENT_MOUSEMOVE, current.x, current.y,
+						                       (real)delta_x, (real)delta_y,
+						                       (real)delta_z / (real)WHEEL_DELTA, 0, mouse_buttons);
+						had_event = true;
+					}
+					/*if (had_event) {
+					    log_debugf(HASH_INPUT,
+					               STRING_CONST("Mouse: current=%d,%d delta=%d,%d,%d buttons=0x%x"),
+					               (int)current.x, (int)current.y, delta_x, delta_y, delta_z,
+					               mouse_buttons);
+					}*/
+					mouse_x = current.x;
+					mouse_y = current.y;
+				}
 			}
 			break;
 
@@ -297,7 +309,7 @@ input_event_handle_window(event_t* event) {
 					if (keycode == 13)
 						keycode = 10;
 					input_event_post_key(INPUTEVENT_CHAR, keycode,
-					                     ((unsigned int)data->lparam >> 16) & 0xFF);
+					                     ((unsigned int)data->lparam >> 16) & 0xFF, 0);
 				} else
 					log_warnf(HASH_INPUT, WARNING_UNSUPPORTED,
 					          "NOT IMPLEMENTED: Got WM_CHAR with wparam 0x%llx",
@@ -310,12 +322,12 @@ input_event_handle_window(event_t* event) {
 				unichar = true;
 			if (unichar)
 				input_event_post_key(INPUTEVENT_CHAR, (unsigned int)data->wparam,
-				                     (unsigned int)(data->lparam >> 16) & 0xFF);
+				                     (unsigned int)(data->lparam >> 16) & 0xFF, 0);
 			break;
 
 		case WM_KEYDOWN:
 			if (data->wparam == VK_DELETE)
-				input_event_post_key(INPUTEVENT_CHAR, 0x7F, 0);
+				input_event_post_key(INPUTEVENT_CHAR, 0x7F, 0, 0);
 			break;
 
 		default:

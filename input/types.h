@@ -61,9 +61,14 @@ typedef enum input_event_id
 
 typedef enum input_mouse_button_id
 {
-	MOUSEBUTTON_LEFT            = 1,
-	MOUSEBUTTON_RIGHT           = 2,
-	MOUSEBUTTON_MIDDLE          = 4
+	MOUSEBUTTON_LEFT            = 0x01,
+	MOUSEBUTTON_RIGHT           = 0x02,
+	MOUSEBUTTON_MIDDLE          = 0x04,
+	MOUSEBUTTON_3               = 0x08,
+	MOUSEBUTTON_4               = 0x10,
+	MOUSEBUTTON_5               = 0x20,
+	MOUSEBUTTON_6               = 0x40,
+	MOUSEBUTTON_7               = 0x80
 } input_mouse_button_id;
 
 typedef enum input_key_id
@@ -289,6 +294,7 @@ struct input_touch_event_t {
 struct input_key_event_t {
 	unsigned int  key;
 	unsigned int  scancode;
+	unsigned int  flags;
 };
 
 struct input_acceleration_event_t {

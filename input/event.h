@@ -24,7 +24,7 @@ INPUT_API void
 input_event_post(input_event_id id);
 
 INPUT_API void
-input_event_post_key(input_event_id id, unsigned int key, unsigned int scancode);
+input_event_post_key(input_event_id id, unsigned int key, unsigned int scancode, unsigned int flags);
 
 INPUT_API void
 input_event_post_mouse(input_event_id id, int x, int y, real dx, real dy, real dz, unsigned int button, unsigned int buttons);

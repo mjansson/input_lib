@@ -9,7 +9,8 @@
  *
  * https://github.com/rampantpixels/foundation_lib
  *
- * This library is put in the public domain; you can redistribute it and/or modify it without any restrictions.
+ * This library is put in the public domain; you can redistribute it and/or modify it without any
+ * restrictions.
  *
  */
 
@@ -43,10 +44,12 @@ input_event_post(input_event_id id) {
 }
 
 void
-input_event_post_key(input_event_id id, unsigned int key, unsigned int scancode) {
+input_event_post_key(input_event_id id, unsigned int key, unsigned int scancode,
+                     unsigned int flags) {
 	input_event_payload_t payload;
 	payload.key.key = key;
 	payload.key.scancode = scancode;
+	payload.key.flags = flags;
 	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
 }
 
