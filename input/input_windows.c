@@ -193,22 +193,20 @@ static int ri_up_flag[5][2] = {{RI_MOUSE_BUTTON_1_UP, MOUSEBUTTON_LEFT},
 void
 input_mouse_down(input_mouse_button_id button, int x, int y) {
 	mouse_buttons |= button;
-	mouse_down[MOUSEBUTTON_LEFT].x = x;
-	mouse_down[MOUSEBUTTON_LEFT].y = y;
-	mouse_down_time[MOUSEBUTTON_LEFT] = time_current();
-	input_event_post_mouse(INPUTEVENT_MOUSEDOWN, mouse_down[MOUSEBUTTON_LEFT].x,
-	                       mouse_down[MOUSEBUTTON_LEFT].y, 0, 0, 0, MOUSEBUTTON_LEFT,
-	                       mouse_buttons);
+	mouse_down[button].x = x;
+	mouse_down[button].y = y;
+	mouse_down_time[button] = time_current();
+	input_event_post_mouse(INPUTEVENT_MOUSEDOWN, mouse_down[button].x, mouse_down[button].y, 0, 0,
+	                       0, button, mouse_buttons);
 }
 
 void
 input_mouse_up(input_mouse_button_id button, int x, int y) {
 	mouse_buttons &= ~button;
-	int dx = x - mouse_down[MOUSEBUTTON_LEFT].x;
-	int dy = y - mouse_down[MOUSEBUTTON_LEFT].y;
+	int dx = x - mouse_down[button].x;
+	int dy = y - mouse_down[button].y;
 	input_event_post_mouse(INPUTEVENT_MOUSEUP, x, y, (real)dx, (real)dy,
-	                       time_elapsed(mouse_down_time[MOUSEBUTTON_LEFT]), MOUSEBUTTON_LEFT,
-	                       mouse_buttons);
+	                       time_elapsed(mouse_down_time[button]), button, mouse_buttons);
 }
 
 void
