@@ -236,14 +236,14 @@ input_event_handle_window(event_t* event) {
 			if (str)
 				len = wstring_length(str);
 			for (size_t i = 0; i < len; ++i)
-				input_event_post_key(INPUTEVENT_CHAR, (unsigned int)str[i], 0);
+				input_event_post_key(INPUTEVENT_CHAR, (unsigned int)str[i], 0, 0);
 		}
 
 		sym = XLookupKeysym(keyevent, 0);
 		if (data->xevent.type == KeyPress)
-			input_event_post_key(INPUTEVENT_KEYDOWN, (unsigned int)lookup_key(sym), keyevent->keycode);
+			input_event_post_key(INPUTEVENT_KEYDOWN, (unsigned int)lookup_key(sym), keyevent->keycode, 0);
 		else
-			input_event_post_key(INPUTEVENT_KEYUP, (unsigned int)lookup_key(sym), keyevent->keycode);
+			input_event_post_key(INPUTEVENT_KEYUP, (unsigned int)lookup_key(sym), keyevent->keycode, 0);
 		break;
 	}
 }
