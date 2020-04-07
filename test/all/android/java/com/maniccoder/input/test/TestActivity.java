@@ -1,4 +1,4 @@
-package com.rampantpixels.input.test;
+package com.maniccoder.input.test;
 
 import android.os.Bundle;
 import android.app.NativeActivity;

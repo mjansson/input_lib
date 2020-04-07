@@ -11,7 +11,7 @@ import generator
 
 dependlibs = ['input', 'window', 'foundation']
 
-generator = generator.Generator(project = 'input', dependlibs = dependlibs, variables = [('bundleidentifier', 'com.rampantpixels.input.$(binname)')])
+generator = generator.Generator(project = 'input', dependlibs = dependlibs, variables = [('bundleidentifier', 'com.maniccoder.input.$(binname)')])
 target = generator.target
 writer = generator.writer
 toolchain = generator.toolchain
@@ -54,7 +54,7 @@ if toolchain.is_monolithic() or target.is_ios() or target.is_android() or target
       os.path.join('drawable-ldpi', 'icon.png'), os.path.join('drawable-mdpi', 'icon.png'), os.path.join('drawable-hdpi', 'icon.png'),
       os.path.join('drawable-xhdpi', 'icon.png'), os.path.join('drawable-xxhdpi', 'icon.png'), os.path.join('drawable-xxxhdpi', 'icon.png')
     ]]
-    test_extrasources = [os.path.join('test', 'all', 'android', 'java', 'com', 'rampantpixels', 'input', 'test', item) for item in [
+    test_extrasources = [os.path.join('test', 'all', 'android', 'java', 'com', 'maniccoder', 'input', 'test', item) for item in [
       'TestActivity.java'
     ]]
   elif target.is_tizen():

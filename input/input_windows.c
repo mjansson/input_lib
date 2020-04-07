@@ -1,14 +1,14 @@
 /* input_windows.c  -  Input library Windows implementation  -  Public Domain  -  2017 Mattias
- * Jansson / Rampant Pixels
+ * Jansson
  *
  * This library provides a cross-platform input handling in C11 providing for projects based on our
  * foundation library. The latest source code is always available at
  *
- * https://github.com/rampantpixels/input_lib
+ * https://github.com/mjansson/input_lib
  *
  * This library is built on top of the foundation library available at
  *
- * https://github.com/rampantpixels/foundation_lib
+ * https://github.com/mjansson/foundation_lib
  *
  * This library is put in the public domain; you can redistribute it and/or modify it without any
  * restrictions.
@@ -196,8 +196,8 @@ input_mouse_down(input_mouse_button_id button, int x, int y) {
 	mouse_down[button].x = x;
 	mouse_down[button].y = y;
 	mouse_down_time[button] = time_current();
-	input_event_post_mouse(INPUTEVENT_MOUSEDOWN, mouse_down[button].x, mouse_down[button].y, 0, 0,
-	                       0, button, mouse_buttons);
+	input_event_post_mouse(INPUTEVENT_MOUSEDOWN, mouse_down[button].x, mouse_down[button].y, 0, 0, 0, button,
+	                       mouse_buttons);
 }
 
 void
@@ -205,8 +205,8 @@ input_mouse_up(input_mouse_button_id button, int x, int y) {
 	mouse_buttons &= ~button;
 	int dx = x - mouse_down[button].x;
 	int dy = y - mouse_down[button].y;
-	input_event_post_mouse(INPUTEVENT_MOUSEUP, x, y, (real)dx, (real)dy,
-	                       time_elapsed(mouse_down_time[button]), button, mouse_buttons);
+	input_event_post_mouse(INPUTEVENT_MOUSEUP, x, y, (real)dx, (real)dy, time_elapsed(mouse_down_time[button]), button,
+	                       mouse_buttons);
 }
 
 void
@@ -261,8 +261,7 @@ input_event_handle_window(event_t* event) {
 					bool had_event = false;
 					for (int ibutton = 0; ibutton < 5; ++ibutton) {
 						if (raw->data.mouse.usButtonFlags & ri_down_flag[ibutton][0]) {
-							input_mouse_down(ri_down_flag[ibutton][1], (int)current.x,
-							                 (int)current.y);
+							input_mouse_down(ri_down_flag[ibutton][1], (int)current.x, (int)current.y);
 							had_event = true;
 						}
 						if (raw->data.mouse.usButtonFlags & ri_up_flag[ibutton][0]) {
@@ -282,8 +281,7 @@ input_event_handle_window(event_t* event) {
 						delta_y = 0;
 					}
 					if (delta_x || delta_y || delta_z) {
-						input_event_post_mouse(INPUTEVENT_MOUSEMOVE, current.x, current.y,
-						                       (real)delta_x, (real)delta_y,
+						input_event_post_mouse(INPUTEVENT_MOUSEMOVE, current.x, current.y, (real)delta_x, (real)delta_y,
 						                       (real)delta_z / (real)WHEEL_DELTA, 0, mouse_buttons);
 						had_event = true;
 					}
@@ -306,11 +304,9 @@ input_event_handle_window(event_t* event) {
 					unsigned int keycode = (unsigned int)data->wparam;
 					if (keycode == 13)
 						keycode = 10;
-					input_event_post_key(INPUTEVENT_CHAR, keycode,
-					                     ((unsigned int)data->lparam >> 16) & 0xFF, 0);
+					input_event_post_key(INPUTEVENT_CHAR, keycode, ((unsigned int)data->lparam >> 16) & 0xFF, 0);
 				} else
-					log_warnf(HASH_INPUT, WARNING_UNSUPPORTED,
-					          "NOT IMPLEMENTED: Got WM_CHAR with wparam 0x%llx",
+					log_warnf(HASH_INPUT, WARNING_UNSUPPORTED, "NOT IMPLEMENTED: Got WM_CHAR with wparam 0x%llx",
 					          (uintptr_t)data->wparam);
 			}
 			break;
