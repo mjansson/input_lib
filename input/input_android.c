@@ -35,9 +35,9 @@
 #include <android/input.h>
 #include <android/sensor.h>
 
-#define NUM_TRANSLATED_KEYS 97
+#define TRANSLATED_KEYS_COUNT 97
 
-static key_id key_translator[NUM_TRANSLATED_KEYS] = {
+static key_id key_translator[TRANSLATED_KEYS_COUNT] = {
     KEY_UNKNOWN,           // AKEYCODE_UNKNOWN         = 0,
     KEY_LEFT,              // AKEYCODE_SOFT_LEFT       = 1,
     KEY_RIGHT,             // AKEYCODE_SOFT_RIGHT      = 2,
@@ -205,8 +205,8 @@ _keyevent_to_unicode(int64_t down_time, int64_t event_time, int32_t action, int3
 int
 android_sensor_callback(int fd, int events, void* data) {
 	ASensorEvent eventbuffer[16];
-	int num_events = ASensorEventQueue_getEvents(_global_sensor_queue, eventbuffer, 16);
-	for (int i = 0; i < num_events; ++i) {
+	int events_count = ASensorEventQueue_getEvents(_global_sensor_queue, eventbuffer, 16);
+	for (int i = 0; i < events_count; ++i) {
 		ASensorEvent* sensor_event = eventbuffer + i;
 
 		// Only one sensor which is accelerometer for now
@@ -330,7 +330,7 @@ android_handle_input(struct android_app* app, AInputEvent* event) {
 
 		info_logf("Key event: action=%d keycode=%d metastate=0x%x flags=%x", action, keycode, metastate, flags);
 
-		if (keycode < NUM_TRANSLATED_KEYS) {
+		if (keycode < TRANSLATED_KEYS_COUNT) {
 			input_event_post_key((action == AKEY_EVENT_ACTION_DOWN) ? INPUTEVENT_KEYDOWN : INPUTEVENT_KEYUP,
 			                     key_translator[keycode], keycode);
 
