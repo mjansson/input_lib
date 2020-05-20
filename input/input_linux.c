@@ -252,7 +252,7 @@ input_event_handle_window(event_t* event) {
 				int dx = moveevent->x - mouse_down_x[button];
 				int dy = moveevent->y - mouse_down_y[button];
 				mouse_buttons &= ~button;
-				input_event_post_mouse(INPUTEVENT_MOUSEUP, moveevent->x, moveevent->y, dx, dy,
+				input_event_post_mouse(INPUTEVENT_MOUSEUP, moveevent->x, moveevent->y, (real)dx, (real)dy,
 				                       time_elapsed(mouse_down_time[button]), button, mouse_buttons);
 			}
 
