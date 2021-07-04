@@ -17,8 +17,14 @@
 
 #if FOUNDATION_PLATFORM_MACOS
 
-#include <CoreServices/CoreServices.h>
-#include <Carbon/Carbon.h>
+#include <foundation/apple.h>
+#include <foundation/log.h>
+
+extern void
+input_module_initialize_native(void);
+
+extern void
+input_service_poll_native(void);
 
 // Apple keycode constants, from Inside Macintosh
 #define MK_ESCAPE 0x35
@@ -130,143 +136,143 @@
  #define MK_IBOOK_UP             0x3E*/
 #define MK_MACBOOK_FN 0x3F
 
-static bool _keydown[256];
-void* _uchr;
-uint32_t _deadkeys;
-void* _key_event_source;
-uint32_t _keytranslator[0x200] = {0};
+static bool keydown[256];
+static const UCKeyboardLayout* keyboard_layout;
+static uint32_t deadkeys;
+static CGEventSourceRef key_event_source;
+static uint32_t keytranslator[0x200] = {0};
 
 static unsigned int
 translate_key(unsigned int key, unsigned int modifiers) {
-	if (!_uchr)
+	if (!keyboard_layout)
 		return key;
 
 	UniCharCount len = 0;
 	UniChar character[2];
-	UInt32 dead = _deadkeys;
-	UCKeyTranslate((const UCKeyboardLayout*)_uchr, key, kUCKeyActionDown, modifiers,
-	               CGEventSourceGetKeyboardType((CGEventSourceRef)_key_event_source), 0, &dead, 1, &len, character);
-	_deadkeys = dead;
+	UInt32 dead = deadkeys;
+	UCKeyTranslate(keyboard_layout, (UInt16)key, kUCKeyActionDown, modifiers,
+	               CGEventSourceGetKeyboardType(key_event_source), 0, &dead, 1, &len, character);
+	deadkeys = dead;
 	return character[0];
 	// return( KeyTranslate( _p_kchr, ( key & 0x7F ) | modifiers, (UInt32*)&_deadkeys ) );
 }
 
 static void
-_build_translator_table(void) {
+build_translator_table(void) {
 	// Default to a standard US keyboard
-	_keytranslator[MK_ESCAPE] = KEY_ESCAPE;
-	_keytranslator[MK_F1] = KEY_F1;
-	_keytranslator[MK_F2] = KEY_F2;
-	_keytranslator[MK_F3] = KEY_F3;
-	_keytranslator[MK_F4] = KEY_F4;
-	_keytranslator[MK_F5] = KEY_F5;
-	_keytranslator[MK_F6] = KEY_F6;
-	_keytranslator[MK_F7] = KEY_F7;
-	_keytranslator[MK_F8] = KEY_F8;
-	_keytranslator[MK_F9] = KEY_F9;
-	_keytranslator[MK_F10] = KEY_F10;
-	_keytranslator[MK_F11] = KEY_F11;
-	_keytranslator[MK_F12] = KEY_F12;
-	_keytranslator[MK_F13] = KEY_F13;
-	_keytranslator[MK_F14] = KEY_F14;
-	_keytranslator[MK_F15] = KEY_F15;
-	_keytranslator[MK_F16] = KEY_F16;
-	_keytranslator[MK_POWER] = KEY_UNKNOWN;
-	_keytranslator[MK_GRAVE] = KEY_GRAVEACCENT;
-	_keytranslator[MK_1] = KEY_0;
-	_keytranslator[MK_2] = KEY_1;
-	_keytranslator[MK_3] = KEY_2;
-	_keytranslator[MK_4] = KEY_3;
-	_keytranslator[MK_5] = KEY_4;
-	_keytranslator[MK_6] = KEY_5;
-	_keytranslator[MK_7] = KEY_6;
-	_keytranslator[MK_8] = KEY_7;
-	_keytranslator[MK_9] = KEY_8;
-	_keytranslator[MK_0] = KEY_9;
-	_keytranslator[MK_MINUS] = KEY_MINUS;
-	_keytranslator[MK_EQUALS] = KEY_EQUAL;
-	_keytranslator[MK_BACKSPACE] = KEY_BACKSPACE;
-	_keytranslator[MK_HELP] = KEY_UNKNOWN;
-	_keytranslator[MK_HOME] = KEY_HOME;
-	_keytranslator[MK_PAGEUP] = KEY_PAGEUP;
-	_keytranslator[MK_NUMLOCK] = KEY_NP_NUMLOCK;
-	_keytranslator[MK_KP_EQUALS] = KEY_NP_EQUAL;
-	_keytranslator[MK_KP_DIVIDE] = KEY_NP_DIVIDE;
-	_keytranslator[MK_KP_MULTIPLY] = KEY_NP_MULTIPLY;
-	_keytranslator[MK_TAB] = KEY_TAB;
-	_keytranslator[MK_Q] = KEY_Q;
-	_keytranslator[MK_W] = KEY_W;
-	_keytranslator[MK_E] = KEY_E;
-	_keytranslator[MK_R] = KEY_R;
-	_keytranslator[MK_T] = KEY_T;
-	_keytranslator[MK_Y] = KEY_Y;
-	_keytranslator[MK_U] = KEY_U;
-	_keytranslator[MK_I] = KEY_I;
-	_keytranslator[MK_O] = KEY_O;
-	_keytranslator[MK_P] = KEY_P;
-	_keytranslator[MK_LEFTBRACKET] = KEY_LEFTBRACKET;
-	_keytranslator[MK_RIGHTBRACKET] = KEY_RIGHTBRACKET;
-	_keytranslator[MK_BACKSLASH] = KEY_BACKSLASH;
-	_keytranslator[MK_DELETE] = KEY_DELETE;
-	_keytranslator[MK_END] = KEY_END;
-	_keytranslator[MK_PAGEDOWN] = KEY_PAGEDOWN;
-	_keytranslator[MK_KP7] = KEY_NP_7;
-	_keytranslator[MK_KP8] = KEY_NP_8;
-	_keytranslator[MK_KP9] = KEY_NP_9;
-	_keytranslator[MK_KP_MINUS] = KEY_NP_MINUS;
-	_keytranslator[MK_CAPSLOCK] = KEY_CAPSLOCK;
-	_keytranslator[MK_A] = KEY_A;
-	_keytranslator[MK_S] = KEY_S;
-	_keytranslator[MK_D] = KEY_D;
-	_keytranslator[MK_F] = KEY_F;
-	_keytranslator[MK_G] = KEY_G;
-	_keytranslator[MK_H] = KEY_H;
-	_keytranslator[MK_J] = KEY_J;
-	_keytranslator[MK_K] = KEY_K;
-	_keytranslator[MK_L] = KEY_L;
-	_keytranslator[MK_SEMICOLON] = KEY_SEMICOLON;
-	_keytranslator[MK_QUOTE] = KEY_QUOTE;
-	_keytranslator[MK_RETURN] = KEY_RETURN;
-	_keytranslator[MK_KP4] = KEY_NP_4;
-	_keytranslator[MK_KP5] = KEY_NP_5;
-	_keytranslator[MK_KP6] = KEY_NP_6;
-	_keytranslator[MK_KP_PLUS] = KEY_NP_PLUS;
-	_keytranslator[MK_SHIFT] = KEY_LSHIFT;
-	_keytranslator[MK_Z] = KEY_Z;
-	_keytranslator[MK_X] = KEY_X;
-	_keytranslator[MK_C] = KEY_C;
-	_keytranslator[MK_V] = KEY_V;
-	_keytranslator[MK_B] = KEY_B;
-	_keytranslator[MK_N] = KEY_N;
-	_keytranslator[MK_M] = KEY_M;
-	_keytranslator[MK_COMMA] = KEY_COMMA;
-	_keytranslator[MK_PERIOD] = KEY_PERIOD;
-	_keytranslator[MK_SLASH] = KEY_SLASH;
-	_keytranslator[MK_UP] = KEY_UP;
-	_keytranslator[MK_KP1] = KEY_NP_1;
-	_keytranslator[MK_KP2] = KEY_NP_2;
-	_keytranslator[MK_KP3] = KEY_NP_3;
-	_keytranslator[MK_KP_ENTER] = KEY_NP_ENTER;
-	_keytranslator[MK_CTRL] = KEY_LCTRL;
-	_keytranslator[MK_ALT] = KEY_LALT;
-	_keytranslator[MK_APPLE] = KEY_LMETA;
-	_keytranslator[MK_SPACE] = KEY_SPACE;
-	_keytranslator[MK_LEFT] = KEY_LEFT;
-	_keytranslator[MK_DOWN] = KEY_DOWN;
-	_keytranslator[MK_RIGHT] = KEY_RIGHT;
-	_keytranslator[MK_KP0] = KEY_NP_0;
-	_keytranslator[MK_KP_PERIOD] = KEY_NP_DECIMAL;
-	/*_keytranslator[ MK_IBOOK_ENTER ] = KEY_RETURN;
-	 _keytranslator[ MK_IBOOK_LEFT ]  = KEY_LEFT;
-	 _keytranslator[ MK_IBOOK_RIGHT ] = KEY_RIGHT;
-	 _keytranslator[ MK_IBOOK_DOWN ]  = KEY_DOWN;
-	 _keytranslator[ MK_IBOOK_UP ]    = KEY_UP;*/
-	_keytranslator[MK_MACBOOK_FN] = KEY_FN;
+	keytranslator[MK_ESCAPE] = KEY_ESCAPE;
+	keytranslator[MK_F1] = KEY_F1;
+	keytranslator[MK_F2] = KEY_F2;
+	keytranslator[MK_F3] = KEY_F3;
+	keytranslator[MK_F4] = KEY_F4;
+	keytranslator[MK_F5] = KEY_F5;
+	keytranslator[MK_F6] = KEY_F6;
+	keytranslator[MK_F7] = KEY_F7;
+	keytranslator[MK_F8] = KEY_F8;
+	keytranslator[MK_F9] = KEY_F9;
+	keytranslator[MK_F10] = KEY_F10;
+	keytranslator[MK_F11] = KEY_F11;
+	keytranslator[MK_F12] = KEY_F12;
+	keytranslator[MK_F13] = KEY_F13;
+	keytranslator[MK_F14] = KEY_F14;
+	keytranslator[MK_F15] = KEY_F15;
+	keytranslator[MK_F16] = KEY_F16;
+	keytranslator[MK_POWER] = KEY_UNKNOWN;
+	keytranslator[MK_GRAVE] = KEY_GRAVEACCENT;
+	keytranslator[MK_1] = KEY_0;
+	keytranslator[MK_2] = KEY_1;
+	keytranslator[MK_3] = KEY_2;
+	keytranslator[MK_4] = KEY_3;
+	keytranslator[MK_5] = KEY_4;
+	keytranslator[MK_6] = KEY_5;
+	keytranslator[MK_7] = KEY_6;
+	keytranslator[MK_8] = KEY_7;
+	keytranslator[MK_9] = KEY_8;
+	keytranslator[MK_0] = KEY_9;
+	keytranslator[MK_MINUS] = KEY_MINUS;
+	keytranslator[MK_EQUALS] = KEY_EQUAL;
+	keytranslator[MK_BACKSPACE] = KEY_BACKSPACE;
+	keytranslator[MK_HELP] = KEY_UNKNOWN;
+	keytranslator[MK_HOME] = KEY_HOME;
+	keytranslator[MK_PAGEUP] = KEY_PAGEUP;
+	keytranslator[MK_NUMLOCK] = KEY_NP_NUMLOCK;
+	keytranslator[MK_KP_EQUALS] = KEY_NP_EQUAL;
+	keytranslator[MK_KP_DIVIDE] = KEY_NP_DIVIDE;
+	keytranslator[MK_KP_MULTIPLY] = KEY_NP_MULTIPLY;
+	keytranslator[MK_TAB] = KEY_TAB;
+	keytranslator[MK_Q] = KEY_Q;
+	keytranslator[MK_W] = KEY_W;
+	keytranslator[MK_E] = KEY_E;
+	keytranslator[MK_R] = KEY_R;
+	keytranslator[MK_T] = KEY_T;
+	keytranslator[MK_Y] = KEY_Y;
+	keytranslator[MK_U] = KEY_U;
+	keytranslator[MK_I] = KEY_I;
+	keytranslator[MK_O] = KEY_O;
+	keytranslator[MK_P] = KEY_P;
+	keytranslator[MK_LEFTBRACKET] = KEY_LEFTBRACKET;
+	keytranslator[MK_RIGHTBRACKET] = KEY_RIGHTBRACKET;
+	keytranslator[MK_BACKSLASH] = KEY_BACKSLASH;
+	keytranslator[MK_DELETE] = KEY_DELETE;
+	keytranslator[MK_END] = KEY_END;
+	keytranslator[MK_PAGEDOWN] = KEY_PAGEDOWN;
+	keytranslator[MK_KP7] = KEY_NP_7;
+	keytranslator[MK_KP8] = KEY_NP_8;
+	keytranslator[MK_KP9] = KEY_NP_9;
+	keytranslator[MK_KP_MINUS] = KEY_NP_MINUS;
+	keytranslator[MK_CAPSLOCK] = KEY_CAPSLOCK;
+	keytranslator[MK_A] = KEY_A;
+	keytranslator[MK_S] = KEY_S;
+	keytranslator[MK_D] = KEY_D;
+	keytranslator[MK_F] = KEY_F;
+	keytranslator[MK_G] = KEY_G;
+	keytranslator[MK_H] = KEY_H;
+	keytranslator[MK_J] = KEY_J;
+	keytranslator[MK_K] = KEY_K;
+	keytranslator[MK_L] = KEY_L;
+	keytranslator[MK_SEMICOLON] = KEY_SEMICOLON;
+	keytranslator[MK_QUOTE] = KEY_QUOTE;
+	keytranslator[MK_RETURN] = KEY_RETURN;
+	keytranslator[MK_KP4] = KEY_NP_4;
+	keytranslator[MK_KP5] = KEY_NP_5;
+	keytranslator[MK_KP6] = KEY_NP_6;
+	keytranslator[MK_KP_PLUS] = KEY_NP_PLUS;
+	keytranslator[MK_SHIFT] = KEY_LSHIFT;
+	keytranslator[MK_Z] = KEY_Z;
+	keytranslator[MK_X] = KEY_X;
+	keytranslator[MK_C] = KEY_C;
+	keytranslator[MK_V] = KEY_V;
+	keytranslator[MK_B] = KEY_B;
+	keytranslator[MK_N] = KEY_N;
+	keytranslator[MK_M] = KEY_M;
+	keytranslator[MK_COMMA] = KEY_COMMA;
+	keytranslator[MK_PERIOD] = KEY_PERIOD;
+	keytranslator[MK_SLASH] = KEY_SLASH;
+	keytranslator[MK_UP] = KEY_UP;
+	keytranslator[MK_KP1] = KEY_NP_1;
+	keytranslator[MK_KP2] = KEY_NP_2;
+	keytranslator[MK_KP3] = KEY_NP_3;
+	keytranslator[MK_KP_ENTER] = KEY_NP_ENTER;
+	keytranslator[MK_CTRL] = KEY_LCTRL;
+	keytranslator[MK_ALT] = KEY_LALT;
+	keytranslator[MK_APPLE] = KEY_LMETA;
+	keytranslator[MK_SPACE] = KEY_SPACE;
+	keytranslator[MK_LEFT] = KEY_LEFT;
+	keytranslator[MK_DOWN] = KEY_DOWN;
+	keytranslator[MK_RIGHT] = KEY_RIGHT;
+	keytranslator[MK_KP0] = KEY_NP_0;
+	keytranslator[MK_KP_PERIOD] = KEY_NP_DECIMAL;
+	/*keytranslator[ MK_IBOOK_ENTER ] = KEY_RETURN;
+	 keytranslator[ MK_IBOOK_LEFT ]  = KEY_LEFT;
+	 keytranslator[ MK_IBOOK_RIGHT ] = KEY_RIGHT;
+	 keytranslator[ MK_IBOOK_DOWN ]  = KEY_DOWN;
+	 keytranslator[ MK_IBOOK_UP ]    = KEY_UP;*/
+	keytranslator[MK_MACBOOK_FN] = KEY_FN;
 
 	// Now lookup keysyms using the current KCHR resource
-	for (int i = 0; i < 0x200; ++i) {
-		_deadkeys = 0;
-		unsigned int key = translate_key(i, 0) & 0xFF;
+	deadkeys = 0;
+	for (uint i = 0; i < 0x200; ++i) {
+		uint key = translate_key(i, 0) & 0xFF;
 		if (!key) {
 			// Dead key, repeat
 			key = translate_key(i, 0) & 0xFF;
@@ -275,90 +281,90 @@ _build_translator_table(void) {
 		if (key >= 127)  // Non-ASCII char
 		{
 			if (key > KEY_UNKNOWN)
-				_keytranslator[i] = KEY_UNKNOWN;  // Unknown unicode?
+				keytranslator[i] = KEY_UNKNOWN;  // Unknown unicode?
 			else
-				_keytranslator[i] = KEY_NONASCIIKEYCODE | (key & KEY_UNKNOWN);  // We have some non-US keys mapped...
+				keytranslator[i] = KEY_NONASCIIKEYCODE | (key & KEY_UNKNOWN);  // We have some non-US keys mapped...
 		} else if (key >= 32)                                                   // ASCII char (not control char)
 		{
 			if ((key >= 97) && (key <= 122))
 				key -= 32;  // lower -> upper case
-			_keytranslator[i] = key;
+			keytranslator[i] = key;
 		}
 	}
 
 	// Reinsert overwritten numpad mappings (maps to ascii number chars above)
-	_keytranslator[MK_NUMLOCK] = KEY_NP_NUMLOCK;
-	_keytranslator[MK_KP_EQUALS] = KEY_NP_EQUAL;
-	_keytranslator[MK_KP_DIVIDE] = KEY_NP_DIVIDE;
-	_keytranslator[MK_KP_MULTIPLY] = KEY_NP_MULTIPLY;
-	_keytranslator[MK_KP7] = KEY_NP_7;
-	_keytranslator[MK_KP8] = KEY_NP_8;
-	_keytranslator[MK_KP9] = KEY_NP_9;
-	_keytranslator[MK_KP_MINUS] = KEY_NP_MINUS;
-	_keytranslator[MK_KP4] = KEY_NP_4;
-	_keytranslator[MK_KP5] = KEY_NP_5;
-	_keytranslator[MK_KP6] = KEY_NP_6;
-	_keytranslator[MK_KP_PLUS] = KEY_NP_PLUS;
-	_keytranslator[MK_KP1] = KEY_NP_1;
-	_keytranslator[MK_KP2] = KEY_NP_2;
-	_keytranslator[MK_KP3] = KEY_NP_3;
-	_keytranslator[MK_KP_ENTER] = KEY_NP_ENTER;
-	_keytranslator[MK_KP0] = KEY_NP_0;
-	_keytranslator[MK_KP_PERIOD] = KEY_NP_DECIMAL;
+	keytranslator[MK_NUMLOCK] = KEY_NP_NUMLOCK;
+	keytranslator[MK_KP_EQUALS] = KEY_NP_EQUAL;
+	keytranslator[MK_KP_DIVIDE] = KEY_NP_DIVIDE;
+	keytranslator[MK_KP_MULTIPLY] = KEY_NP_MULTIPLY;
+	keytranslator[MK_KP7] = KEY_NP_7;
+	keytranslator[MK_KP8] = KEY_NP_8;
+	keytranslator[MK_KP9] = KEY_NP_9;
+	keytranslator[MK_KP_MINUS] = KEY_NP_MINUS;
+	keytranslator[MK_KP4] = KEY_NP_4;
+	keytranslator[MK_KP5] = KEY_NP_5;
+	keytranslator[MK_KP6] = KEY_NP_6;
+	keytranslator[MK_KP_PLUS] = KEY_NP_PLUS;
+	keytranslator[MK_KP1] = KEY_NP_1;
+	keytranslator[MK_KP2] = KEY_NP_2;
+	keytranslator[MK_KP3] = KEY_NP_3;
+	keytranslator[MK_KP_ENTER] = KEY_NP_ENTER;
+	keytranslator[MK_KP0] = KEY_NP_0;
+	keytranslator[MK_KP_PERIOD] = KEY_NP_DECIMAL;
 }
 
 void
-_input_service_initialize_native(void) {
-	memset(_keydown, 0, sizeof(bool) * 256);
+input_module_initialize_native(void) {
+	memset(keydown, 0, sizeof(bool) * 256);
 
 	TISInputSourceRef current_keyboard = TISCopyCurrentKeyboardInputSource();
-	CFDataRef uchr = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
-	_uchr = (uchr ? (UCKeyboardLayout*)CFDataGetBytePtr(uchr) : 0);
-	_deadkeys = 0;
-	_key_event_source = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
+	CFDataRef layoutref = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
+	keyboard_layout = (layoutref ? (const void*)CFDataGetBytePtr(layoutref) : 0);
+	deadkeys = 0;
+	key_event_source = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
 
-	_build_translator_table();
+	build_translator_table();
 }
 
 void
-_input_service_poll_native(void) {
+input_service_poll_native(void) {
 	TISInputSourceRef current_keyboard = TISCopyCurrentKeyboardInputSource();
-	CFDataRef uchr = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
-	void* uchrptr = (uchr ? (void*)CFDataGetBytePtr(uchr) : 0);
+	CFDataRef layoutref = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
+	const void* layout = (layoutref ? (const void*)CFDataGetBytePtr(layoutref) : 0);
 
-	if (uchrptr != _uchr) {
-		_deadkeys = 0;
-		_uchr = uchrptr;
+	if (layout != keyboard_layout) {
+		deadkeys = 0;
+		keyboard_layout = layout;
 
-		info_logf("Switched UCHR resource");
-		_build_translator_table();
+		log_info(HASH_INPUT, STRING_CONST("Switched UCHR resource"));
+		build_translator_table();
 	}
 
 	CGEventSourceStateID event_source = kCGEventSourceStateCombinedSessionState;
 
 	// TODO: Look into using event taps instead, this is silly
-	for (int i = 0; i < 256; ++i) {
-		if (CGEventSourceKeyState(event_source, i)) {
-			if (!_keydown[i]) {
-				unsigned int keycode = _keytranslator[i];
+	for (uint i = 0; i < 256; ++i) {
+		if (CGEventSourceKeyState(event_source, (CGKeyCode)i)) {
+			if (!keydown[i]) {
+				unsigned int keycode = keytranslator[i];
 				if (!keycode)
 					keycode = KEY_UNKNOWN;
 				// printf( "DEBUG TRACE: Key %d down, translated to '%c'\n", i, (char)keycode );
 
-				input_event_post_key(INPUTEVENT_KEYDOWN, keycode, i);
+				input_event_post_key(INPUTEVENT_KEYDOWN, keycode, i, 0);
 
-				_keydown[i] = true;
+				keydown[i] = true;
 			}
 		} else {
-			if (_keydown[i]) {
-				unsigned int keycode = _keytranslator[i];
+			if (keydown[i]) {
+				unsigned int keycode = keytranslator[i];
 				if (!keycode)
 					keycode = KEY_UNKNOWN;
 				// printf( "DEBUG TRACE: Key %d up, translated to '%c'\n", i, (char)keycode );
 
-				input_event_post_key(INPUTEVENT_KEYUP, keycode, i);
+				input_event_post_key(INPUTEVENT_KEYUP, keycode, i, 0);
 
-				_keydown[i] = false;
+				keydown[i] = false;
 			}
 		}
 	}

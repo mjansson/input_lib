@@ -264,7 +264,7 @@ typedef struct input_key_event_t input_key_event_t;
 typedef struct input_acceleration_event_t input_acceleration_event_t;
 
 struct input_config_t {
-	unsigned int _unused;
+	unsigned int unused;
 };
 
 struct input_mouse_event_t {
