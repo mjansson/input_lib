@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>input</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ProjectGuid>{62E96EFC-A296-4358-B9E5-980E91F1ACE6}</ProjectGuid>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <Import Project="$(SolutionDir)\build.default.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup>
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemGroup>
+    <ClInclude Include="..\..\input\build.h" />
+    <ClInclude Include="..\..\input\event.h" />
+    <ClInclude Include="..\..\input\hashstrings.h" />
+    <ClInclude Include="..\..\input\input.h" />
+    <ClInclude Include="..\..\input\internal.h" />
+    <ClInclude Include="..\..\input\types.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\input\event.c" />
+    <ClCompile Include="..\..\input\input.c" />
+    <ClCompile Include="..\..\input\input_android.c" />
+    <ClCompile Include="..\..\input\input_ios.c" />
+    <ClCompile Include="..\..\input\input_linux.c" />
+    <ClCompile Include="..\..\input\input_macos.c" />
+    <ClCompile Include="..\..\input\input_windows.c" />
+    <ClCompile Include="..\..\input\version.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\input\hashstrings.txt" />
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\foundation;$(ProjectDir)..\..\..\foundation_lib;$(ProjectDir)..\..\..\window;$(ProjectDir)..\..\..\window_lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>INPUT_COMPILE=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
