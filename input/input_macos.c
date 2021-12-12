@@ -17,14 +17,12 @@
 
 #if FOUNDATION_PLATFORM_MACOS
 
+#include <input/internal.h>
+
 #include <foundation/apple.h>
 #include <foundation/log.h>
 
-extern void
-input_module_initialize_native(void);
-
-extern void
-input_service_poll_native(void);
+#include <window/types.h>
 
 // Apple keycode constants, from Inside Macintosh
 #define MK_ESCAPE 0x35
@@ -284,7 +282,7 @@ build_translator_table(void) {
 				keytranslator[i] = KEY_UNKNOWN;  // Unknown unicode?
 			else
 				keytranslator[i] = KEY_NONASCIIKEYCODE | (key & KEY_UNKNOWN);  // We have some non-US keys mapped...
-		} else if (key >= 32)                                                   // ASCII char (not control char)
+		} else if (key >= 32)                                                  // ASCII char (not control char)
 		{
 			if ((key >= 97) && (key <= 122))
 				key -= 32;  // lower -> upper case
@@ -313,7 +311,7 @@ build_translator_table(void) {
 	keytranslator[MK_KP_PERIOD] = KEY_NP_DECIMAL;
 }
 
-void
+int
 input_module_initialize_native(void) {
 	memset(keydown, 0, sizeof(bool) * 256);
 
@@ -324,10 +322,23 @@ input_module_initialize_native(void) {
 	key_event_source = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
 
 	build_translator_table();
+
+	return 0;
 }
 
 void
-input_service_poll_native(void) {
+input_module_finalize_native(void) {
+}
+
+void
+input_event_handle_window(event_t* event) {
+	// Extract data from native message
+	if (event->id != WINDOWEVENT_NATIVE)
+		return;
+}
+
+void
+input_event_process(void) {
 	TISInputSourceRef current_keyboard = TISCopyCurrentKeyboardInputSource();
 	CFDataRef layoutref = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
 	const void* layout = (layoutref ? (const void*)CFDataGetBytePtr(layoutref) : 0);
