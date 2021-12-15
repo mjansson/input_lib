@@ -20,27 +20,27 @@
 #include <foundation/event.h>
 #include <foundation/log.h>
 
-event_stream_t* _input_event_stream;
+event_stream_t* input_event_stream_current;
 
 int
 input_event_initialize(void) {
-	_input_event_stream = event_stream_allocate(1024);
+	input_event_stream_current = event_stream_allocate(1024);
 	return 0;
 }
 
 void
 input_event_finalize(void) {
-	event_stream_deallocate(_input_event_stream);
+	event_stream_deallocate(input_event_stream_current);
 }
 
 event_stream_t*
 input_event_stream(void) {
-	return _input_event_stream;
+	return input_event_stream_current;
 }
 
 void
 input_event_post(input_event_id id) {
-	event_post(_input_event_stream, (int)id, 0, 0, 0, 0);
+	event_post(input_event_stream_current, (int)id, 0, 0, 0, 0);
 }
 
 void
@@ -49,7 +49,7 @@ input_event_post_key(input_event_id id, unsigned int key, unsigned int scancode,
 	payload.key.key = key;
 	payload.key.scancode = scancode;
 	payload.key.flags = flags;
-	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
+	event_post(input_event_stream_current, (int)id, 0, 0, &payload, sizeof(payload));
 }
 
 void
@@ -63,7 +63,7 @@ input_event_post_mouse(input_event_id id, int x, int y, real dx, real dy, real d
 	payload.mouse.dz = dz;
 	payload.mouse.button = button;
 	payload.mouse.buttons = buttons;
-	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
+	event_post(input_event_stream_current, (int)id, 0, 0, &payload, sizeof(payload));
 }
 
 void
@@ -77,7 +77,7 @@ input_event_post_touch(input_event_id id, int x, int y, real dx, real dy, real v
 	payload.touch.velocity = velocity;
 	payload.touch.touch = touch;
 	payload.touch.touches = touches;
-	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
+	event_post(input_event_stream_current, (int)id, 0, 0, &payload, sizeof(payload));
 }
 
 void
@@ -86,5 +86,5 @@ input_event_post_acceleration(input_event_id id, real x, real y, real z) {
 	payload.acceleration.x = x;
 	payload.acceleration.y = y;
 	payload.acceleration.z = z;
-	event_post(_input_event_stream, (int)id, 0, 0, &payload, sizeof(payload));
+	event_post(input_event_stream_current, (int)id, 0, 0, &payload, sizeof(payload));
 }
