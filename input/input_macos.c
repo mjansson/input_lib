@@ -339,46 +339,48 @@ input_event_handle_window(event_t* event) {
 
 void
 input_event_process(void) {
-	TISInputSourceRef current_keyboard = TISCopyCurrentKeyboardInputSource();
-	CFDataRef layoutref = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
-	const void* layout = (layoutref ? (const void*)CFDataGetBytePtr(layoutref) : 0);
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		TISInputSourceRef current_keyboard = TISCopyCurrentKeyboardInputSource();
+		CFDataRef layoutref = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
+		const void* layout = (layoutref ? (const void*)CFDataGetBytePtr(layoutref) : 0);
 
-	if (layout != keyboard_layout) {
-		deadkeys = 0;
-		keyboard_layout = layout;
+		if (layout != keyboard_layout) {
+		  deadkeys = 0;
+		  keyboard_layout = layout;
 
-		log_info(HASH_INPUT, STRING_CONST("Switched UCHR resource"));
-		build_translator_table();
-	}
-
-	CGEventSourceStateID event_source = kCGEventSourceStateCombinedSessionState;
-
-	// TODO: Look into using event taps instead, this is silly
-	for (uint i = 0; i < 256; ++i) {
-		if (CGEventSourceKeyState(event_source, (CGKeyCode)i)) {
-			if (!keydown[i]) {
-				unsigned int keycode = keytranslator[i];
-				if (!keycode)
-					keycode = KEY_UNKNOWN;
-				// printf( "DEBUG TRACE: Key %d down, translated to '%c'\n", i, (char)keycode );
-
-				input_event_post_key(INPUTEVENT_KEYDOWN, keycode, i, 0);
-
-				keydown[i] = true;
-			}
-		} else {
-			if (keydown[i]) {
-				unsigned int keycode = keytranslator[i];
-				if (!keycode)
-					keycode = KEY_UNKNOWN;
-				// printf( "DEBUG TRACE: Key %d up, translated to '%c'\n", i, (char)keycode );
-
-				input_event_post_key(INPUTEVENT_KEYUP, keycode, i, 0);
-
-				keydown[i] = false;
-			}
+		  log_info(HASH_INPUT, STRING_CONST("Switched UCHR resource"));
+		  build_translator_table();
 		}
-	}
+
+		CGEventSourceStateID event_source = kCGEventSourceStateCombinedSessionState;
+
+		// TODO: Look into using event taps instead, this is silly
+		for (uint i = 0; i < 256; ++i) {
+		  if (CGEventSourceKeyState(event_source, (CGKeyCode)i)) {
+			  if (!keydown[i]) {
+				  unsigned int keycode = keytranslator[i];
+				  if (!keycode)
+					  keycode = KEY_UNKNOWN;
+				  // printf( "DEBUG TRACE: Key %d down, translated to '%c'\n", i, (char)keycode );
+
+				  input_event_post_key(INPUTEVENT_KEYDOWN, keycode, i, 0);
+
+				  keydown[i] = true;
+			  }
+		  } else {
+			  if (keydown[i]) {
+				  unsigned int keycode = keytranslator[i];
+				  if (!keycode)
+					  keycode = KEY_UNKNOWN;
+				  // printf( "DEBUG TRACE: Key %d up, translated to '%c'\n", i, (char)keycode );
+
+				  input_event_post_key(INPUTEVENT_KEYUP, keycode, i, 0);
+
+				  keydown[i] = false;
+			  }
+		  }
+		}
+	});
 }
 
 #endif
