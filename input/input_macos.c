@@ -24,6 +24,13 @@
 
 #include <window/types.h>
 
+#if FOUNDATION_COMPILER_CLANG
+#pragma clang diagnostic push
+#if __has_warning("-Wfloat-equal")
+#pragma clang diagnostic ignored "-Wfloat-equal"
+#endif
+#endif
+
 // Apple keycode constants, from Inside Macintosh
 #define MK_ESCAPE 0x35
 #define MK_F1 0x7A
@@ -139,6 +146,11 @@ static const UCKeyboardLayout* keyboard_layout;
 static uint32_t deadkeys;
 static CGEventSourceRef key_event_source;
 static uint32_t keytranslator[0x200] = {0};
+static double mouse_x;
+static double mouse_y;
+static uint mouse_buttons;
+static CGPoint mouse_down[8];
+static time_t mouse_down_time[8];
 
 static unsigned int
 translate_key(unsigned int key, unsigned int modifiers) {
@@ -311,6 +323,37 @@ build_translator_table(void) {
 	keytranslator[MK_KP_PERIOD] = KEY_NP_DECIMAL;
 }
 
+static void
+input_mouse_down(input_mouse_button_id button, double x, double y) {
+	mouse_buttons |= button;
+	mouse_down[button].x = x;
+	mouse_down[button].y = y;
+	mouse_down_time[button] = time_current();
+	input_event_post_mouse(INPUTEVENT_MOUSEDOWN, (int)mouse_down[button].x, (int)mouse_down[button].y, 0, 0, 0, button,
+	                       mouse_buttons);
+	// log_infof(0, STRING_CONST("Mouse down %d"), button);
+}
+
+static void
+input_mouse_up(input_mouse_button_id button, double x, double y) {
+	mouse_buttons &= ~button;
+	double dx = x - mouse_down[button].x;
+	double dy = y - mouse_down[button].y;
+	input_event_post_mouse(INPUTEVENT_MOUSEUP, (int)x, (int)y, (real)dx, (real)dy,
+	                       time_elapsed(mouse_down_time[button]), button, mouse_buttons);
+	// log_infof(0, STRING_CONST("Mouse up %d"), button);
+}
+
+/*
+static CGEventRef
+event_tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* refcon) {
+    if (type == kCGEventMouseMoved) {
+    }
+
+    return event;
+}
+*/
+
 int
 input_module_initialize_native(void) {
 	memset(keydown, 0, sizeof(bool) * 256);
@@ -322,6 +365,13 @@ input_module_initialize_native(void) {
 	key_event_source = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
 
 	build_translator_table();
+
+	/*
+	CFMachPortRef event_tap =
+	    CGEventTapCreate(kCGAnnotatedSessionEventTap, kCGHeadInsertEventTap, kCGEventTapOptionListenOnly,
+	                     kCGEventMaskForAllEvents, event_tap_callback, 0);
+	CGEventTapEnable(event_tap, true);
+	*/
 
 	return 0;
 }
@@ -337,49 +387,90 @@ input_event_handle_window(event_t* event) {
 		return;
 }
 
+static void
+input_event_process_main_queue() {
+	TISInputSourceRef current_keyboard = TISCopyCurrentKeyboardInputSource();
+	CFDataRef layoutref = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
+	const void* layout = (layoutref ? (const void*)CFDataGetBytePtr(layoutref) : 0);
+
+	if (layout != keyboard_layout) {
+		deadkeys = 0;
+		keyboard_layout = layout;
+
+		log_info(HASH_INPUT, STRING_CONST("Switched UCHR resource"));
+		build_translator_table();
+	}
+
+	CGEventSourceStateID event_source = kCGEventSourceStateCombinedSessionState;
+
+	// TODO: Look into using event taps instead, this is silly
+	for (uint i = 0; i < 256; ++i) {
+		if (CGEventSourceKeyState(event_source, (CGKeyCode)i)) {
+			if (!keydown[i]) {
+				unsigned int keycode = keytranslator[i];
+				if (!keycode)
+					keycode = KEY_UNKNOWN;
+				// printf( "DEBUG TRACE: Key %d down, translated to '%c'\n", i, (char)keycode );
+
+				input_event_post_key(INPUTEVENT_KEYDOWN, keycode, i, 0);
+
+				keydown[i] = true;
+			}
+		} else {
+			if (keydown[i]) {
+				unsigned int keycode = keytranslator[i];
+				if (!keycode)
+					keycode = KEY_UNKNOWN;
+				// printf( "DEBUG TRACE: Key %d up, translated to '%c'\n", i, (char)keycode );
+
+				input_event_post_key(INPUTEVENT_KEYUP, keycode, i, 0);
+
+				keydown[i] = false;
+			}
+		}
+	}
+
+	CGEventRef event = CGEventCreate(0);
+	CGPoint loc = CGEventGetLocation(event);
+	CFRelease(event);
+
+	double dx = mouse_x - loc.x;
+	double dy = mouse_y - loc.y;
+	mouse_x = loc.x;
+	mouse_y = loc.y;
+
+	bool left_down = CGEventSourceButtonState(event_source, kCGMouseButtonLeft);
+	bool right_down = CGEventSourceButtonState(event_source, kCGMouseButtonRight);
+	bool center_down = CGEventSourceButtonState(event_source, kCGMouseButtonCenter);
+
+	bool was_left_down = ((mouse_buttons & MOUSEBUTTON_LEFT) != 0);
+	bool was_right_down = ((mouse_buttons & MOUSEBUTTON_RIGHT) != 0);
+	bool was_center_down = ((mouse_buttons & MOUSEBUTTON_MIDDLE) != 0);
+
+	if (left_down && !was_left_down)
+		input_mouse_down(MOUSEBUTTON_LEFT, loc.x, loc.y);
+	if (!left_down && was_left_down)
+		input_mouse_up(MOUSEBUTTON_LEFT, loc.x, loc.y);
+	if (right_down && !was_right_down)
+		input_mouse_down(MOUSEBUTTON_RIGHT, loc.x, loc.y);
+	if (!right_down && was_right_down)
+		input_mouse_up(MOUSEBUTTON_RIGHT, loc.x, loc.y);
+	if (center_down && !was_center_down)
+		input_mouse_down(MOUSEBUTTON_MIDDLE, loc.x, loc.y);
+	if (!center_down && was_center_down)
+		input_mouse_up(MOUSEBUTTON_MIDDLE, loc.x, loc.y);
+
+	if ((dx != 0) || (dy != 0)) {
+		input_event_post_mouse(INPUTEVENT_MOUSEMOVE, (int)mouse_x, (int)mouse_y, (real)dx, (real)dy, 0, 0,
+		                       mouse_buttons);
+		// log_infof(0, STRING_CONST("Mouse at %d,%d (%.2f, %.2f)"), (int)mouse_x, (int)mouse_y, dx, dy);
+	}
+}
+
 void
 input_event_process(void) {
 	dispatch_sync(dispatch_get_main_queue(), ^{
-		TISInputSourceRef current_keyboard = TISCopyCurrentKeyboardInputSource();
-		CFDataRef layoutref = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
-		const void* layout = (layoutref ? (const void*)CFDataGetBytePtr(layoutref) : 0);
-
-		if (layout != keyboard_layout) {
-		  deadkeys = 0;
-		  keyboard_layout = layout;
-
-		  log_info(HASH_INPUT, STRING_CONST("Switched UCHR resource"));
-		  build_translator_table();
-		}
-
-		CGEventSourceStateID event_source = kCGEventSourceStateCombinedSessionState;
-
-		// TODO: Look into using event taps instead, this is silly
-		for (uint i = 0; i < 256; ++i) {
-		  if (CGEventSourceKeyState(event_source, (CGKeyCode)i)) {
-			  if (!keydown[i]) {
-				  unsigned int keycode = keytranslator[i];
-				  if (!keycode)
-					  keycode = KEY_UNKNOWN;
-				  // printf( "DEBUG TRACE: Key %d down, translated to '%c'\n", i, (char)keycode );
-
-				  input_event_post_key(INPUTEVENT_KEYDOWN, keycode, i, 0);
-
-				  keydown[i] = true;
-			  }
-		  } else {
-			  if (keydown[i]) {
-				  unsigned int keycode = keytranslator[i];
-				  if (!keycode)
-					  keycode = KEY_UNKNOWN;
-				  // printf( "DEBUG TRACE: Key %d up, translated to '%c'\n", i, (char)keycode );
-
-				  input_event_post_key(INPUTEVENT_KEYUP, keycode, i, 0);
-
-				  keydown[i] = false;
-			  }
-		  }
-		}
+	  input_event_process_main_queue();
 	});
 }
 
