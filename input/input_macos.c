@@ -388,7 +388,7 @@ input_event_handle_window(event_t* event) {
 }
 
 static void
-input_event_process_main_queue() {
+input_event_process_main_queue(void) {
 	TISInputSourceRef current_keyboard = TISCopyCurrentKeyboardInputSource();
 	CFDataRef layoutref = (CFDataRef)TISGetInputSourceProperty(current_keyboard, kTISPropertyUnicodeKeyLayoutData);
 	const void* layout = (layoutref ? (const void*)CFDataGetBytePtr(layoutref) : 0);
