@@ -69,6 +69,7 @@ if toolchain.is_monolithic() or target.is_ios() or target.is_android() or target
 else:
   sources = ['main.c']
   #Build one binary per test case
-  generator.bin(module = 'all', sources = sources, binname = 'test-all', basepath = 'test', implicit_deps = [input_lib], libs = dependlibs, includepaths = includepaths)
+  if not generator.is_subninja:
+    generator.bin(module = 'all', sources = sources, binname = 'test-all', basepath = 'test', implicit_deps = [input_lib], libs = dependlibs, includepaths = includepaths)
   for test in test_cases:
     generator.bin(module = test, sources = sources, binname = 'test-' + test, basepath = 'test', implicit_deps = [input_lib], libs = ['test'] + dependlibs, includepaths = includepaths)
